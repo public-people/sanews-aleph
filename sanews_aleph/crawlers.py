@@ -5,9 +5,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from slugify import slugify
 import logging
+import os
+import codecs
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+TMP_FILE_PATH = os.environ.get('SANEWS_ALEPH_TMP_FILE_PATH')
 
 
 class TheNewAgeCrawler(DocumentCrawler):
@@ -26,6 +31,8 @@ class TheNewAgeCrawler(DocumentCrawler):
         try:
             publication_filter = Article.publication_name == self.COLLECTION_LABEL
             for article in session.query(Article).filter(publication_filter):
+                if self.skip_incremental(article.url):
+                    continue
                 self.crawl_document(article)
         except:
             raise
@@ -33,12 +40,12 @@ class TheNewAgeCrawler(DocumentCrawler):
             session.close()
 
     def crawl_document(self, article):
-        local_path = '/data/ingest/sanews/%s' % slugify(article['url'])
-        with open(local_path) as file:
-            file.write(article['body_html'])
-        document = self.create_document(foreign_id=article['url'])
-        document.source_url = article.get('url')
-        document.title = article.get('title')
-        document.add_date(article.get('publication_date').isoformat())
+        local_path = os.path.join(TMP_FILE_PATH, slugify(article.url))
+        with codecs.open(local_path, 'w', 'utf-8') as file:
+            file.write(article.body_html)
+        document = self.create_document(foreign_id=article.url)
+        document.source_url = article.url
+        document.title = article.title
+        document.add_date(article.publication_date.isoformat())
         document.mime_type = 'text/html'
         self.emit_file(document, local_path)
