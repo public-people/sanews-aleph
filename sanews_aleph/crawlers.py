@@ -32,6 +32,7 @@ class TheNewAgeCrawler(DocumentCrawler):
             publication_filter = Article.publication_name == self.COLLECTION_LABEL
             for article in session.query(Article).filter(publication_filter):
                 if self.skip_incremental(article.url):
+                    logger.info("Skipping %s in incremental crawl", article.ur)
                     continue
                 self.crawl_document(article)
         except:
@@ -46,6 +47,6 @@ class TheNewAgeCrawler(DocumentCrawler):
         document = self.create_document(foreign_id=article.url)
         document.source_url = article.url
         document.title = article.title
-        document.add_date(article.publication_date.isoformat())
+        document.publication_date = article.publication_date.isoformat()[:10]
         document.mime_type = 'text/html'
         self.emit_file(document, local_path)
